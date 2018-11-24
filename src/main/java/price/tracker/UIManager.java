@@ -3,17 +3,12 @@ package price.tracker;
 import java.applet.Applet;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.Frame;
 import java.awt.GridLayout;
 import java.awt.Panel;
 import java.awt.TextField;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.WindowEvent;
-import java.awt.event.WindowListener;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -27,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import com.gargoylesoftware.htmlunit.BrowserVersion;
@@ -35,17 +29,17 @@ import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 
-public class UIManager extends Applet implements ActionListener, WindowListener, KeyListener {
-
-	JFrame fMain;
-	ResultsDisplayWindow window;
-	Panel pResult;
-	TextField txtCommand;
-	JButton butAddNew;
-	JButton butDelete;
-	JButton butRefresh;
-	JButton butExit;
-	static ArrayList<String> stockNames;
+public class UIManager extends Applet implements ActionListener {
+	private static WebClient webClient;
+	private JFrame fMain;
+	private ResultsDisplayWindow window;
+	private Panel pResult;
+	private TextField txtCommand;
+	private JButton butAddNew;
+	private JButton butDelete;
+	private JButton butRefresh;
+	private JButton butExit;
+	private static ArrayList<String> stockNames;
 	private final static String[] fields = { "Previous Close", "Open", "Bid", "Ask", "Day's Range", "52 Week Range",
 			"Volume", "Avg. Volume", "Market Cap", "Beta (3Y Monthly)", "PE Ratio (TTM)", "EPS (TTM)", "Earnings Date",
 			"Forward Dividend & Yield", "Ex-Dividend Date", "1y Target Est", "Current Price" };
@@ -67,7 +61,7 @@ public class UIManager extends Applet implements ActionListener, WindowListener,
 		butDelete.addActionListener(this);
 		butRefresh.addActionListener(this);
 		butExit.addActionListener(this);
-		txtCommand = new TextField(20);
+		txtCommand = new TextField(15);
 		Panel pane = new Panel();
 		pane.setLayout(new GridLayout());
 		pane.add(txtCommand);
@@ -83,7 +77,6 @@ public class UIManager extends Applet implements ActionListener, WindowListener,
 		fMain.add(pResult);
 		Dimension size = fMain.getSize();
 		Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
-
 		setLayout(new BorderLayout());
 		if (d.width >= 720) {
 			fMain.setLocation((d.width - size.width) / 2, (d.height - size.height) / 2);
@@ -94,140 +87,107 @@ public class UIManager extends Applet implements ActionListener, WindowListener,
 		fMain.setVisible(true);
 	}
 
-	public void keyTyped(KeyEvent e) {
-		// TODO Auto-generated method stub
-
+	/**
+	 * Configures and sets the webclient for loading web pages
+	 */
+	private static void getWebClientconfig() {
+		webClient = new WebClient(BrowserVersion.CHROME);
+		webClient.getOptions().setUseInsecureSSL(true);
+		webClient.getOptions().setThrowExceptionOnScriptError(false);
+		webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
+		webClient.getOptions().setCssEnabled(false);
+		webClient.getOptions().setJavaScriptEnabled(false);
 	}
 
-	public void keyPressed(KeyEvent e) {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void keyReleased(KeyEvent e) {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void windowOpened(WindowEvent e) {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void windowClosing(WindowEvent e) {
-		// TODO Auto-generated method stub
-		Object source = e.getSource();
-		((Frame) source).dispose();
-		fMain.dispose();
-		System.exit(0);
-	}
-
-	public void windowClosed(WindowEvent e) {
-		// TODO Auto-generated method stub
-	}
-
-	public void windowIconified(WindowEvent e) {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void windowDeiconified(WindowEvent e) {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void windowActivated(WindowEvent e) {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void windowDeactivated(WindowEvent e) {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void actionPerformed(ActionEvent e) {
-		// TODO Auto-generated method stub
-		String s = e.getActionCommand();
+	/**
+	 * The application will search for the stock given the name or symbol and add
+	 * its information into the display table and the stock_data.csv file. If the
+	 * user attempts to add a stock that is already listed, the application will
+	 * tell the user that the stock they are trying to add already exists. Likewise,
+	 * if the user incorrectly spells the symbol or name of the stock, they will be
+	 * given a warning that no stock could be found under the input name
+	 * 
+	 * @param nameOfStock
+	 *            The name or symbol of the stock to be added
+	 */
+	private void addNew(String nameOfStock) {
 		boolean checkedCurrentPrice = false;
+		if (stockNames.contains(nameOfStock)) {
+			System.out.println("Warning: Stock is already listed!");
+		} else {
+			getWebClientconfig();
+			String website = "https://ca.finance.yahoo.com/quote/" + nameOfStock + "/?p=" + nameOfStock;
+			try {
+				HtmlPage page = webClient.getPage(website);
+				String[] sections = page.asText().split("\n");
+				StringBuilder sb = new StringBuilder();
+				sb.append(nameOfStock);
+				String line41;
+				String[] currentPrice = { null };
+				for (int i = 0; i < sections.length; i++) {
+					String[] parts = sections[i].split("\t");
+					if (sections[i].contains(nameOfStock) && i > 30 && checkedCurrentPrice == false) {
+						line41 = sections[i + 3].replaceAll("\r", "").replaceAll(",", "");
+						currentPrice = line41.replaceAll("-", "+").split("\\+");
+						checkedCurrentPrice = true;
+					}
+					if (Arrays.asList(fields).contains(parts[0])) {
+						sb.append("," + parts[1].replaceAll(",", "").replaceAll("\r", ""));
+					}
+				}
+				sb.append("," + currentPrice[0]);
+				String extract = sb.toString();
+				String exists = extract.split(",")[1];
+				if (exists != null && !exists.equals("null")) {
+					BufferedWriter bw = new BufferedWriter(new FileWriter("stock_data.csv", true));
+					bw.write(extract + "\n");
+					bw.close();
+					stockNames.add(nameOfStock);
+				} else {
+					System.out.println("Warning: The stock name or symbol you listed could not be found!");
+				}
+			} catch (FailingHttpStatusCodeException e1) {
+				e1.printStackTrace();
+			} catch (MalformedURLException e1) {
+				e1.printStackTrace();
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			} finally {
+				webClient.close();
+			}
+		}
+	}
+
+	/**
+	 * Removes the selected line in the display table and the corresponding record
+	 * in the save file
+	 */
+	private void deleteStock() {
+		Integer row = window.table.getSelectedRow();
+		if (row >= 0) {
+			String rowContent = (String) window.table.getValueAt(row, 0);
+			File file = new File("stock_data.csv");
+			List<String> out;
+			try {
+				out = Files.lines(file.toPath()).filter(line -> !line.contains(rowContent))
+						.collect(Collectors.toList());
+				Files.write(file.toPath(), out, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
+			stockNames.remove(rowContent);
+		}
+	}
+
+	public void actionPerformed(ActionEvent event) {
+		String s = event.getActionCommand();
 		if (s.equals("Add new Stock")) {
 			String newName = txtCommand.getText().toUpperCase();
 			if (newName != null && newName.length() > 0) {
-				if (stockNames.contains(newName)) {
-					System.out.println("Stock is already listed");
-				} else {
-					WebClient webClient = new WebClient(BrowserVersion.CHROME);
-					webClient.getOptions().setUseInsecureSSL(true);
-					webClient.getOptions().setThrowExceptionOnScriptError(false);
-					webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
-					webClient.getOptions().setCssEnabled(false);
-					webClient.getOptions().setJavaScriptEnabled(false);
-					String website = "https://ca.finance.yahoo.com/quote/" + newName + "/?p=" + newName;
-					HtmlPage page;
-					try {
-						page = webClient.getPage(website);
-						String[] sections = page.asText().split("\n");
-
-						StringBuilder sb = new StringBuilder();
-						sb.append(newName);
-						String line41;
-						String currentPriceUnsplit;
-						String[] currentPrice = { null };
-						for (int i = 0; i < sections.length; i++) {
-							String[] parts = sections[i].split("\t");
-							if (sections[i].contains(newName) && i > 30 && checkedCurrentPrice == false) {
-								line41 = sections[i + 3].replaceAll("\r", "").replaceAll(",", "");
-								currentPriceUnsplit = line41.replaceAll("-", "+");
-								currentPrice = currentPriceUnsplit.split("\\+");
-								checkedCurrentPrice = true;
-							}
-							if (Arrays.asList(fields).contains(parts[0])) {
-								sb.append("," + parts[1].replaceAll(",", "").replaceAll("\r", ""));
-							}
-						}
-						sb.append("," + currentPrice[0]);
-						String extract = sb.toString();
-						String exists = extract.split(",")[1];
-						if (exists != null && !exists.equals("null")) {
-							BufferedWriter bw = new BufferedWriter(new FileWriter("stock_data.csv", true));
-							bw.write(extract + "\n");
-							bw.close();
-							stockNames.add(newName);
-						} else {
-							System.out.println("The stock name or symbol you listed could not be found");
-						}
-					} catch (FailingHttpStatusCodeException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					} catch (MalformedURLException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					} catch (IOException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					} finally {
-						webClient.close();	
-					}									
-				}
+				addNew(newName);
 			}
-
 		} else if (s.equals("Delete Stock")) {
-			Integer row = window.table.getSelectedRow();
-			if (row >= 0) {
-				String rowContent = (String) window.table.getValueAt(row, 0);
-				File file = new File("stock_data.csv");
-				List<String> out;
-				try {
-					out = Files.lines(file.toPath()).filter(line -> !line.contains(rowContent))
-							.collect(Collectors.toList());
-					Files.write(file.toPath(), out, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
-
-				} catch (IOException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-				stockNames.remove(rowContent);
-			}
+			deleteStock();
 		} else if (s.equals("Refresh Values")) {
 			refreshValues();
 		} else if (s.equals("Quit")) {
@@ -237,35 +197,32 @@ public class UIManager extends Applet implements ActionListener, WindowListener,
 		fMain.setVisible(true);
 	}
 
+	/**
+	 * Refreshes all fields for each stock in the table to their most recent values
+	 * and updates them in the appropriate save file as well
+	 */
 	private static void refreshValues() {
-		WebClient webClient = new WebClient(BrowserVersion.CHROME);
-		webClient.getOptions().setUseInsecureSSL(true);
-		webClient.getOptions().setThrowExceptionOnScriptError(false);
-		webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
-		webClient.getOptions().setCssEnabled(false);
-		webClient.getOptions().setJavaScriptEnabled(false);
+		getWebClientconfig();
 		BufferedWriter bw = null;
 		boolean checkedCurrentPrice = false;
 		try {
 			String result = String.join(",", fields);
-			bw = new BufferedWriter(new FileWriter("stock_data.csv"));
 			String headers = "Stock Name/Symbol," + result;
+			bw = new BufferedWriter(new FileWriter("stock_data.csv"));
 			bw.write(headers.toUpperCase() + "\n");
 			for (String name : stockNames) {
 				String website = "https://ca.finance.yahoo.com/quote/" + name + "/?p=" + name;
 				HtmlPage page = webClient.getPage(website);
 				String[] sections = page.asText().split("\n");
 				StringBuilder sb = new StringBuilder();
-				sb.append(name);
+				sb.append(name.toUpperCase());
 				String line41;
-				String currentPriceUnsplit;
 				String[] currentPrice = { null };
 				for (int i = 0; i < sections.length; i++) {
 					String[] parts = sections[i].split("\t");
-					if (sections[i].contains(name) && i > 30 && checkedCurrentPrice == false) {
+					if (sections[i].contains(name.toUpperCase()) && i > 30 && !checkedCurrentPrice) {
 						line41 = sections[i + 3].replaceAll("\r", "").replaceAll(",", "");
-						currentPriceUnsplit = line41.replaceAll("-", "+");
-						currentPrice = currentPriceUnsplit.split("\\+");
+						currentPrice = line41.replaceAll("-", "+").split("\\+");
 						checkedCurrentPrice = true;
 					}
 					if (Arrays.asList(fields).contains(parts[0])) {
@@ -277,14 +234,9 @@ public class UIManager extends Applet implements ActionListener, WindowListener,
 				bw.write(extract + "\n");
 				checkedCurrentPrice = false;
 			}
+			bw.close();
 		} catch (IOException ex) {
-
-		} finally {
-			try {
-				bw.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			ex.printStackTrace();
 		}
 		webClient.close();
 	}
@@ -294,26 +246,22 @@ public class UIManager extends Applet implements ActionListener, WindowListener,
 		stockNames = new ArrayList<String>();
 		try {
 			BufferedReader br = new BufferedReader(new FileReader("stock_data.csv"));
-			try {
-				br.readLine();// Get rid of header
-				stockName = br.readLine().split(",")[0].toUpperCase();
-				while (stockName != null) {
-					stockNames.add(stockName);
+			stockName = br.readLine();// Get rid of header
+			while (stockName != null && stockName.length() > 0) {
+				try {
 					stockName = br.readLine().split(",")[0].toUpperCase();
+					stockNames.add(stockName);
+				} catch (NullPointerException ex) {
+					stockName = null;
 				}
-			} catch (NullPointerException ex) {
-				stockName = null;
 			}
 			br.close();
-
 		} catch (FailingHttpStatusCodeException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (MalformedURLException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IOException e) {
-
+			e.printStackTrace();
 		}
 		refreshValues();
 		new UIManager();

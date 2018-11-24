@@ -2,11 +2,8 @@ package price.tracker;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.Event;
 import java.awt.Font;
 import java.awt.Panel;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
@@ -16,7 +13,7 @@ import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
 import com.opencsv.CSVReader;
 
-public class ResultsDisplayWindow extends Panel implements MouseListener {
+public class ResultsDisplayWindow extends Panel{
 	private Dimension dMinimum;
 	protected int iRowCount;
 	protected String[] sColHead = new String[0];
@@ -38,6 +35,11 @@ public class ResultsDisplayWindow extends Panel implements MouseListener {
 		repaint();
 	}
 
+	/**
+	 * Sets the data model for the display table given a path to a csv file
+	 * 
+	 * @param path the path of the csv file that contains the data
+	 */
 	public void setData(String path) {
 		remove(pane);
 		Object[] columnnames;
@@ -63,16 +65,10 @@ public class ResultsDisplayWindow extends Panel implements MouseListener {
 			update();
 			reader.close();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (ArrayIndexOutOfBoundsException ex) {
-			
+			ex.printStackTrace();
 		}
-	}
-
-	public void clearTable() {
-		remove(pane);
-		update();
 	}
 
 	public Dimension getPreferredSize() {
@@ -83,46 +79,10 @@ public class ResultsDisplayWindow extends Panel implements MouseListener {
 		dMinimum = d;
 	}
 
-	public boolean handleEvent(Event e) {
-		switch (e.id) {
-		case Event.SCROLL_LINE_UP:
-		case Event.SCROLL_LINE_DOWN:
-		case Event.SCROLL_PAGE_UP:
-		case Event.SCROLL_PAGE_DOWN:
-		case Event.SCROLL_ABSOLUTE:
-			repaint();
-			return true;
-		}
-		return super.handleEvent(e);
-	}
-
+	/**
+	 * Updates the visuals for the table with the updated and refreshed data
+	 */
 	public void update() {
 		repaint();
-	}
-
-	public void mouseClicked(MouseEvent e) {
-		// TODO Auto-generated method stub
-		int row = e.getY() / table.getRowHeight();
-		System.out.println(row);
-	}
-
-	public void mousePressed(MouseEvent e) {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void mouseReleased(MouseEvent e) {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void mouseEntered(MouseEvent e) {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void mouseExited(MouseEvent e) {
-		// TODO Auto-generated method stub
-
 	}
 }
