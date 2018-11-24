@@ -40,6 +40,8 @@ public class UIManager extends Applet implements ActionListener {
 	private JButton butRefresh;
 	private JButton butExit;
 	private static ArrayList<String> stockNames;
+	private static String website;
+	private static HtmlPage page;
 	private final static String[] fields = { "Previous Close", "Open", "Bid", "Ask", "Day's Range", "52 Week Range",
 			"Volume", "Avg. Volume", "Market Cap", "Beta (3Y Monthly)", "PE Ratio (TTM)", "EPS (TTM)", "Earnings Date",
 			"Forward Dividend & Yield", "Ex-Dividend Date", "1y Target Est", "Current Price" };
@@ -88,7 +90,7 @@ public class UIManager extends Applet implements ActionListener {
 	}
 
 	/**
-	 * Configures and sets the webclient for loading web pages
+	 * Configures and sets up the web client for loading web pages
 	 */
 	private static void getWebClientconfig() {
 		webClient = new WebClient(BrowserVersion.CHROME);
@@ -110,51 +112,44 @@ public class UIManager extends Applet implements ActionListener {
 	 * @param nameOfStock
 	 *            The name or symbol of the stock to be added
 	 */
-	private void addNew(String nameOfStock) {
+	private static void addNew(String nameOfStock) {
 		boolean checkedCurrentPrice = false;
-		if (stockNames.contains(nameOfStock)) {
-			System.out.println("Warning: Stock is already listed!");
-		} else {
-			getWebClientconfig();
-			String website = "https://ca.finance.yahoo.com/quote/" + nameOfStock + "/?p=" + nameOfStock;
-			try {
-				HtmlPage page = webClient.getPage(website);
-				String[] sections = page.asText().split("\n");
-				StringBuilder sb = new StringBuilder();
-				sb.append(nameOfStock);
-				String line41;
-				String[] currentPrice = { null };
-				for (int i = 0; i < sections.length; i++) {
-					String[] parts = sections[i].split("\t");
-					if (sections[i].contains(nameOfStock) && i > 30 && checkedCurrentPrice == false) {
-						line41 = sections[i + 3].replaceAll("\r", "").replaceAll(",", "");
-						currentPrice = line41.replaceAll("-", "+").split("\\+");
-						checkedCurrentPrice = true;
-					}
-					if (Arrays.asList(fields).contains(parts[0])) {
-						sb.append("," + parts[1].replaceAll(",", "").replaceAll("\r", ""));
-					}
+		try {
+			page = webClient.getPage(website + nameOfStock + "/?p=" + nameOfStock);
+			String[] sections = page.asText().split("\n");
+			StringBuilder sb = new StringBuilder();
+			sb.append(nameOfStock);
+			String currentPriceInfoLine;
+			String[] currentPrice = { null };
+			for (int i = 0; i < sections.length; i++) {
+				// Reads the text line buy line to look for the relevant fields and
+				// corresponding data
+				String[] parts = sections[i].split("\t");
+				if (sections[i].contains(nameOfStock) && i > 30 && checkedCurrentPrice == false) {
+					currentPriceInfoLine = sections[i + 3].replaceAll("\r", "").replaceAll(",", "");
+					currentPrice = currentPriceInfoLine.replaceAll("-", "+").split("\\+");
+					checkedCurrentPrice = true;
 				}
-				sb.append("," + currentPrice[0]);
-				String extract = sb.toString();
-				String exists = extract.split(",")[1];
-				if (exists != null && !exists.equals("null")) {
-					BufferedWriter bw = new BufferedWriter(new FileWriter("stock_data.csv", true));
-					bw.write(extract + "\n");
-					bw.close();
-					stockNames.add(nameOfStock);
-				} else {
-					System.out.println("Warning: The stock name or symbol you listed could not be found!");
+				if (Arrays.asList(fields).contains(parts[0])) {
+					sb.append("," + parts[1].replaceAll(",", "").replaceAll("\r", ""));
 				}
-			} catch (FailingHttpStatusCodeException e1) {
-				e1.printStackTrace();
-			} catch (MalformedURLException e1) {
-				e1.printStackTrace();
-			} catch (IOException e1) {
-				e1.printStackTrace();
-			} finally {
-				webClient.close();
 			}
+			sb.append("," + currentPrice[0]);
+			String extract = sb.toString();
+			String exists = extract.split(",")[1];
+			if (exists != null && !exists.equals("null")) {
+				BufferedWriter bw = new BufferedWriter(new FileWriter("stock_data.csv", true));
+				bw.write(extract + "\n");
+				bw.close();
+			} else {
+				System.out.println("Warning: The stock name or symbol you listed could not be found!");
+			}
+		} catch (FailingHttpStatusCodeException e1) {
+			e1.printStackTrace();
+		} catch (MalformedURLException e1) {
+			e1.printStackTrace();
+		} catch (IOException e1) {
+			e1.printStackTrace();
 		}
 	}
 
@@ -184,13 +179,19 @@ public class UIManager extends Applet implements ActionListener {
 		if (s.equals("Add new Stock")) {
 			String newName = txtCommand.getText().toUpperCase();
 			if (newName != null && newName.length() > 0) {
-				addNew(newName);
+				if (stockNames.contains(newName)) {
+					System.out.println("Warning: Stock is already listed!");
+				} else {
+					addNew(newName);
+					stockNames.add(newName);
+				}
 			}
 		} else if (s.equals("Delete Stock")) {
 			deleteStock();
 		} else if (s.equals("Refresh Values")) {
 			refreshValues();
 		} else if (s.equals("Quit")) {
+			webClient.close();
 			System.exit(0);
 		}
 		window.setData("stock_data.csv");
@@ -202,48 +203,25 @@ public class UIManager extends Applet implements ActionListener {
 	 * and updates them in the appropriate save file as well
 	 */
 	private static void refreshValues() {
-		getWebClientconfig();
 		BufferedWriter bw = null;
-		boolean checkedCurrentPrice = false;
 		try {
 			String result = String.join(",", fields);
 			String headers = "Stock Name/Symbol," + result;
 			bw = new BufferedWriter(new FileWriter("stock_data.csv"));
 			bw.write(headers.toUpperCase() + "\n");
-			for (String name : stockNames) {
-				String website = "https://ca.finance.yahoo.com/quote/" + name + "/?p=" + name;
-				HtmlPage page = webClient.getPage(website);
-				String[] sections = page.asText().split("\n");
-				StringBuilder sb = new StringBuilder();
-				sb.append(name.toUpperCase());
-				String line41;
-				String[] currentPrice = { null };
-				for (int i = 0; i < sections.length; i++) {
-					String[] parts = sections[i].split("\t");
-					if (sections[i].contains(name.toUpperCase()) && i > 30 && !checkedCurrentPrice) {
-						line41 = sections[i + 3].replaceAll("\r", "").replaceAll(",", "");
-						currentPrice = line41.replaceAll("-", "+").split("\\+");
-						checkedCurrentPrice = true;
-					}
-					if (Arrays.asList(fields).contains(parts[0])) {
-						sb.append("," + parts[1].replaceAll(",", "").replaceAll("\r", ""));
-					}
-				}
-				sb.append("," + currentPrice[0]);
-				String extract = sb.toString();
-				bw.write(extract + "\n");
-				checkedCurrentPrice = false;
-			}
 			bw.close();
+			for (String name : stockNames) {
+				addNew(name);
+			}
 		} catch (IOException ex) {
 			ex.printStackTrace();
 		}
-		webClient.close();
 	}
 
 	public static void main(String[] args) {
 		String stockName;
 		stockNames = new ArrayList<String>();
+		website = "https://ca.finance.yahoo.com/quote/";
 		try {
 			BufferedReader br = new BufferedReader(new FileReader("stock_data.csv"));
 			stockName = br.readLine();// Get rid of header
@@ -263,6 +241,7 @@ public class UIManager extends Applet implements ActionListener {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		getWebClientconfig(); 
 		refreshValues();
 		new UIManager();
 	}

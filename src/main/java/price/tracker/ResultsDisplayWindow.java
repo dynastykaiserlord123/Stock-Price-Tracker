@@ -30,11 +30,6 @@ public class ResultsDisplayWindow extends Panel{
 		add(pane, BorderLayout.CENTER);
 	}
 
-	public void setBounds(int x, int y, int w, int h) {
-		super.setBounds(x, y, w, h);
-		repaint();
-	}
-
 	/**
 	 * Sets the data model for the display table given a path to a csv file
 	 * 
@@ -71,6 +66,13 @@ public class ResultsDisplayWindow extends Panel{
 		}
 	}
 
+	/**
+	 * Updates the visuals for the table with the updated and refreshed data
+	 */
+	public void update() {
+		repaint();
+	}
+	
 	public Dimension getPreferredSize() {
 		return dMinimum;
 	}
@@ -78,11 +80,9 @@ public class ResultsDisplayWindow extends Panel{
 	public void setMinimumSize(Dimension d) {
 		dMinimum = d;
 	}
-
-	/**
-	 * Updates the visuals for the table with the updated and refreshed data
-	 */
-	public void update() {
+	
+	public void setBounds(int x, int y, int w, int h) {
+		super.setBounds(x, y, w, h);
 		repaint();
 	}
 }
