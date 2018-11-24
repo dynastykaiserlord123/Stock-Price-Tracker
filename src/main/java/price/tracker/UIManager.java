@@ -283,7 +283,6 @@ public class UIManager extends Applet implements ActionListener, WindowListener,
 			try {
 				bw.close();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -297,10 +296,10 @@ public class UIManager extends Applet implements ActionListener, WindowListener,
 			BufferedReader br = new BufferedReader(new FileReader("stock_data.csv"));
 			try {
 				br.readLine();// Get rid of header
-				stockName = br.readLine().split(",")[0];
+				stockName = br.readLine().split(",")[0].toUpperCase();
 				while (stockName != null) {
 					stockNames.add(stockName);
-					stockName = br.readLine().split(",")[0];
+					stockName = br.readLine().split(",")[0].toUpperCase();
 				}
 			} catch (NullPointerException ex) {
 				stockName = null;
